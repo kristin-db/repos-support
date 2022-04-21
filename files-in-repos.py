@@ -12,6 +12,9 @@
 # MAGIC 
 # MAGIC ## Requirements
 # MAGIC - Databricks Runtime 8.4 or above.
+# MAGIC 
+# MAGIC ## Documentation
+# MAGIC https://docs.databricks.com/repos/index.html#repos-for-git-integration
 
 # COMMAND ----------
 
@@ -48,7 +51,7 @@ import os
 sys.path.append(os.path.abspath('/Workspace/Repos/<username>/supplemental_files'))
 
 # You can now import Python modules from the supplemental_files repo.
-# import lib
+import lib
 
 # COMMAND ----------
 
@@ -145,3 +148,120 @@ display(df)
 
 # MAGIC %md ## Limitations
 # MAGIC You cannot programmatically write to a file.
+
+# COMMAND ----------
+
+# MAGIC %md #Save Data as CSV
+# MAGIC Note that if your dataset is large enough, Spark will want to split it across multiple files. Using .coalesce(1) forces Spark to write all your data into one file (Note: This is completely optional). .coalesce(1) will save you the hassle of combining your data later, though it can potentially lead to unwieldy file size.
+# MAGIC 
+# MAGIC Documentation: https://docs.databricks.com/data/data-sources/read-csv.html#csv-file
+# MAGIC 
+# MAGIC To export the data, the easiest way is via the Databricks CLI: https://docs.databricks.com/dev-tools/cli/index.html
+
+# COMMAND ----------
+
+df.coalesce(1).write.csv("dbfs:/FileStore/df/Sample.csv")
+
+# COMMAND ----------
+
+# MAGIC %md # Save A Plot
+# MAGIC 
+# MAGIC Related documentation using Plotly: https://kb.databricks.com/visualizations/save-plotly-to-dbfs.html
+
+# COMMAND ----------
+
+# MAGIC %r
+# MAGIC library(SparkR)
+# MAGIC diamonds_df <- read.df("/databricks-datasets/Rdatasets/data-001/csv/ggplot2/diamonds.csv", source = "csv", header="true", inferSchema = "true")
+
+# COMMAND ----------
+
+# DBTITLE 1,Create sample plot and save to driver node
+# MAGIC %r
+# MAGIC library(ggplot2)
+# MAGIC myplot1 <- ggplot(diamonds, aes(carat, price, color = color, group = 1)) + geom_point(alpha = 0.3) + stat_smooth()
+# MAGIC ggsave(path="/databricks/driver", filename="myplot1.png")
+
+# COMMAND ----------
+
+# DBTITLE 1,Copy the file from the driver node and save it to DBFS:
+dbutils.fs.cp("file:/databricks/driver/myplot1.png", "dbfs:/FileStore/tmp/images/myplot1.png")
+
+# COMMAND ----------
+
+# DBTITLE 1,Display the image
+displayHTML('''<img src="/files/tmp/images/myplot1.png">''')
+
+# COMMAND ----------
+
+# MAGIC %md #Exception Handling in R
+
+# COMMAND ----------
+
+# DBTITLE 1,Use stop to throw an error “condition” to signal an invalid program state:
+# MAGIC %r
+# MAGIC stopifnot(1 == 2)
+
+# COMMAND ----------
+
+# DBTITLE 1,Unhandled errors
+# MAGIC %r
+# MAGIC options(error = NULL)  # switch to default behaviour of pure R
+# MAGIC 
+# MAGIC test <- function() {
+# MAGIC   log("not a number")
+# MAGIC   print("R does stop due to an error and never executes this line")
+# MAGIC }
+# MAGIC 
+# MAGIC test()     # throws an error
+
+# COMMAND ----------
+
+# DBTITLE 1,tryCatch
+# MAGIC %r
+# MAGIC an.error.occured <- FALSE
+# MAGIC tryCatch( { result <- log("not a number"); print(res) }
+# MAGIC           , error = function(e) {an.error.occured <<- TRUE})
+# MAGIC print(an.error.occured)
+
+# COMMAND ----------
+
+# DBTITLE 1,tryCatch with a Warning
+# MAGIC %r
+# MAGIC tryCatch( { result <- log(-1); print(result) }
+# MAGIC           , warning = function(w) { print("Hey, a warning") })
+
+# COMMAND ----------
+
+# DBTITLE 1,tryCatch with a Parameter
+# MAGIC %r
+# MAGIC last.message <- NULL
+# MAGIC tryCatch( { message("please handle me"); print("Done") }
+# MAGIC           , message = function(m) { last.message <<- m })
+# MAGIC print(last.message$message)
+
+# COMMAND ----------
+
+# DBTITLE 1,withCallingHandlers
+# MAGIC %r
+# MAGIC f <- function() {
+# MAGIC   warning("deprecated function called")
+# MAGIC   print("Hello world")
+# MAGIC }
+# MAGIC withCallingHandlers(f(), warning = function(w) { print("Hey, a warning")})
+
+# COMMAND ----------
+
+# DBTITLE 1,withCallingHandlers & Restart
+# MAGIC %r
+# MAGIC f <- function() {
+# MAGIC   warning("deprecated function called")
+# MAGIC   print("Hello old world")
+# MAGIC }
+# MAGIC withCallingHandlers(f(), warning = function(w) { print("Hey, a warning")
+# MAGIC                                                  invokeRestart("muffleWarning")})
+# MAGIC print("Done")
+
+# COMMAND ----------
+
+
